@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.nfc.tech.MifareUltralight;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
@@ -33,6 +34,8 @@ import android.os.Parcelable;
 import org.json.JSONObject;
 import org.json.JSONException;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.*;
 
 import static android.app.Activity.RESULT_OK;
@@ -42,7 +45,7 @@ import static com.facebook.react.bridge.UiThreadUtil.runOnUiThread;
 import android.content.pm.PackageManager;
 
 class NfcManager extends ReactContextBaseJavaModule implements ActivityEventListener, LifecycleEventListener {
-	private static final String LOG_TAG = "ReactNativeNfcManager";
+	private static final String LOG_TAG = "NfcManager";
     private final List<IntentFilter> intentFilters = new ArrayList<IntentFilter>();
     private final ArrayList<String[]> techLists = new ArrayList<String[]>();
 	private Context context;
@@ -54,14 +57,10 @@ class NfcManager extends ReactContextBaseJavaModule implements ActivityEventList
 	class WriteNdefRequest {
 		NdefMessage message;
 		Callback callback;
-		boolean format;
-		boolean formatReadOnly;
 
-		WriteNdefRequest(NdefMessage message, Callback callback, boolean format, boolean formatReadOnly) {
+		WriteNdefRequest(NdefMessage message, Callback callback) {
 			this.message = message;
 			this.callback = callback;
-			this.format = format;
-			this.formatReadOnly = formatReadOnly;
 		}
 	}
 
@@ -93,7 +92,7 @@ class NfcManager extends ReactContextBaseJavaModule implements ActivityEventList
 	}
 
 	@ReactMethod
-	public void requestNdefWrite(ReadableArray rnArray, ReadableMap options, Callback callback) {
+	public void requestNdefWrite(ReadableArray rnArray, Callback callback) {
 		synchronized(this) {
 			if (!isForegroundEnabled) {
 				callback.invoke("you should requestTagEvent first");
@@ -103,27 +102,11 @@ class NfcManager extends ReactContextBaseJavaModule implements ActivityEventList
 		    if (writeNdefRequest != null) {
 		    	callback.invoke("You can only issue one request at a time");
 		    } else {
-				boolean format = options.getBoolean("format");
-				boolean formatReadOnly = options.getBoolean("formatReadOnly");
-				
 		        try {
-					NdefMessage msgToWrite;
-
-					/// the only case we allow ndef message to be null is when formatting, see:
-					/// https://developer.android.com/reference/android/nfc/tech/NdefFormatable.html#format(android.nfc.NdefMessage)
-					///	this API allows the `firstMessage` to be null
-					if (format && rnArray == null) {
-						msgToWrite = null;
-					} else {
-						byte[] bytes = rnArrayToBytes(rnArray);
-						msgToWrite = new NdefMessage(bytes);
-					}
-
+					byte[] bytes = rnArrayToBytes(rnArray);
 		    		writeNdefRequest = new WriteNdefRequest(
-						msgToWrite,
-						callback, // defer the callback 
-						format,
-						formatReadOnly
+						new NdefMessage(bytes), 
+						callback // defer the callback 
 					); 
 		        } catch (FormatException e) {
 		        	callback.invoke("Incorrect ndef format");
@@ -138,9 +121,6 @@ class NfcManager extends ReactContextBaseJavaModule implements ActivityEventList
 		if (nfcAdapter != null) {
 			Log.d(LOG_TAG, "start");
 			callback.invoke();
-
-			IntentFilter filter = new IntentFilter(NfcAdapter.ACTION_ADAPTER_STATE_CHANGED);
-			getReactApplicationContext().getCurrentActivity().registerReceiver(mReceiver, filter);
 		} else {
 			Log.d(LOG_TAG, "not support in this device");
 			callback.invoke("no nfc support");
@@ -294,35 +274,6 @@ class NfcManager extends ReactContextBaseJavaModule implements ActivityEventList
 		@Override
 		public void onReceive(Context context, Intent intent) {
 			Log.d(LOG_TAG, "onReceive " + intent);
-			final String action = intent.getAction();
-
-            if (action.equals(NfcAdapter.ACTION_ADAPTER_STATE_CHANGED)) {
-                final int state = intent.getIntExtra(NfcAdapter.EXTRA_ADAPTER_STATE,
-                                                     NfcAdapter.STATE_OFF);
-				String stateStr = "unknown";
-                switch (state) {
-                case NfcAdapter.STATE_OFF:
-					stateStr = "off";
-                    break;
-                case NfcAdapter.STATE_TURNING_OFF:
-					stateStr = "turning_off";
-                    break;
-                case NfcAdapter.STATE_ON:
-					stateStr = "on";
-                    break;
-                case NfcAdapter.STATE_TURNING_ON:
-					stateStr = "turning_on";
-                    break;
-                }
-
-                try {
-        			WritableMap writableMap = Arguments.createMap();
-					writableMap.putString("state", stateStr);
-                    sendEvent("NfcManagerStateChanged", writableMap);
-                } catch (Exception ex) {
-                    Log.d(LOG_TAG, "send nfc state change event fail: " + ex);
-                }
-            }
 		}
 	};
 
@@ -356,7 +307,8 @@ class NfcManager extends ReactContextBaseJavaModule implements ActivityEventList
 			if (writeNdefRequest != null) {
 				writeNdef(
 					tag, 
-					writeNdefRequest
+					writeNdefRequest.message, 
+					writeNdefRequest.callback
 				);
 				writeNdefRequest = null;
 
@@ -374,9 +326,23 @@ class NfcManager extends ReactContextBaseJavaModule implements ActivityEventList
 				Log.d(LOG_TAG, tagTech);
 				if (tagTech.equals(NdefFormatable.class.getName())) {
 					// fireNdefFormatableEvent(tag);
-					parsed = tag2React(tag);
 				} else if (tagTech.equals(Ndef.class.getName())) { //
 					Ndef ndef = Ndef.get(tag);
+					MifareUltralight mifare = MifareUltralight.get(tag);
+					byte[] buffer = new byte[16];
+					try {
+						mifare.connect();
+						ByteArrayOutputStream out = new ByteArrayOutputStream();
+						String s = new String(mifare.readPages(144));
+						Log.d(LOG_TAG, s);
+						out.write(mifare.readPages(144));
+						buffer = out.toByteArray();
+						Log.d(LOG_TAG, buffer.toString());
+						Log.d(LOG_TAG, Util.byteArrayToJSON(buffer).toString());
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+					Log.d(LOG_TAG, ndef.toString());
 					parsed = ndef2React(ndef, new NdefMessage[] { ndef.getCachedNdefMessage() });
 				}
 			}
@@ -411,6 +377,7 @@ class NfcManager extends ReactContextBaseJavaModule implements ActivityEventList
         // ndef is null for peer-to-peer
         // ndef and messages are null for ndef format-able
         if (ndef == null && messages != null) {
+
             try {
 
                 if (messages.length > 0) {
@@ -432,50 +399,24 @@ class NfcManager extends ReactContextBaseJavaModule implements ActivityEventList
         return json;
     }
 
-	private void writeNdef(Tag tag, WriteNdefRequest request) {
-		NdefMessage message = request.message; 
-		Callback callback = request.callback;
-		boolean formatReadOnly = request.formatReadOnly;
-		boolean format = request.format;
-
-		if (format || formatReadOnly) {
-	    	try {
-                Log.d(LOG_TAG, "ready to writeNdef");
-	    		NdefFormatable formatable = NdefFormatable.get(tag);
-	    		if (formatable == null) {
-	    			callback.invoke("fail to apply ndef formatable tech");
-               } else {
-                	Log.d(LOG_TAG, "ready to format ndef, seriously");
-	    			formatable.connect();
-					if (formatReadOnly) {
-						formatable.formatReadOnly(message);
-					} else {
-						formatable.format(message);
-					}
-	    			callback.invoke();
-	    		}
-	    	} catch (Exception ex) {
-	    		callback.invoke(ex.getMessage());
-	    	}
-		} else {
-	    	try {
-                Log.d(LOG_TAG, "ready to writeNdef");
-	    		Ndef ndef = Ndef.get(tag);
-	    		if (ndef == null) {
-	    			callback.invoke("fail to apply ndef tech");
-	    		} else if (!ndef.isWritable()) {
-	    			callback.invoke("tag is not writeable");
-                } else if (ndef.getMaxSize() < message.toByteArray().length) {
-	    			callback.invoke("tag size is not enough");
-                } else {
-                	Log.d(LOG_TAG, "ready to writeNdef, seriously");
-	    			ndef.connect();
-	    			ndef.writeNdefMessage(message);
-	    			callback.invoke();
-	    		}
-	    	} catch (Exception ex) {
-	    		callback.invoke(ex.getMessage());
-	    	}
+	private void writeNdef(Tag tag, NdefMessage message, Callback callback) {
+		try {
+            Log.d(LOG_TAG, "ready to writeNdef");
+			Ndef ndef = Ndef.get(tag);
+			if (ndef == null) {
+				callback.invoke("fail to apply ndef tech");
+			} else if (!ndef.isWritable()) {
+				callback.invoke("tag is not writeable");
+            } else if (ndef.getMaxSize() < message.toByteArray().length) {
+				callback.invoke("tag size is not enough");
+            } else {
+            	Log.d(LOG_TAG, "ready to writeNdef, seriously");
+				ndef.connect();
+				ndef.writeNdefMessage(message);
+				callback.invoke();
+			}
+		} catch (Exception ex) {
+			callback.invoke(ex.getMessage());
 		}
 	}
 

@@ -7,7 +7,6 @@ import {
     TouchableOpacity,
     Linking,
     TextInput,
-    ScrollView,
 } from 'react-native';
 import NfcManager, {NdefParser} from 'react-native-nfc-manager';
 
@@ -33,79 +32,52 @@ class App extends Component {
             })
     }
 
-    componentWillUnmount() {
-        if (this._stateChangedSubscription) {
-            this._stateChangedSubscription.remove();
-        }
-    }
-
     render() {
         let { supported, enabled, tag, isWriting, urlToWrite} = this.state;
         return (
-            <ScrollView style={{flex: 1}}>
-                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                    <Text>{`Is NFC supported ? ${supported}`}</Text>
-                    <Text>{`Is NFC enabled (Android only)? ${enabled}`}</Text>
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <Text>{`Is NFC supported ? ${supported}`}</Text>
+                <Text>{`Is NFC enabled (Android only)? ${enabled}`}</Text>
 
-                    <TouchableOpacity style={{ marginTop: 20 }} onPress={this._startDetection}>
-                        <Text style={{ color: 'blue' }}>Start Tag Detection</Text>
-                    </TouchableOpacity>
+                <TouchableOpacity style={{ marginTop: 20 }} onPress={this._startDetection}>
+                    <Text style={{ color: 'blue' }}>Start Tag Detection</Text>
+                </TouchableOpacity>
 
-                    <TouchableOpacity style={{ marginTop: 20 }} onPress={this._stopDetection}>
-                        <Text style={{ color: 'red' }}>Stop Tag Detection</Text>
-                    </TouchableOpacity>
+                <TouchableOpacity style={{ marginTop: 20 }} onPress={this._stopDetection}>
+                    <Text style={{ color: 'red' }}>Stop Tag Detection</Text>
+                </TouchableOpacity>
 
-                    <TouchableOpacity style={{ marginTop: 20 }} onPress={this._clearMessages}>
-                        <Text>Clear</Text>
-                    </TouchableOpacity>
+                <TouchableOpacity style={{ marginTop: 20 }} onPress={this._clearMessages}>
+                    <Text>Clear</Text>
+                </TouchableOpacity>
 
-                    <TouchableOpacity style={{ marginTop: 20 }} onPress={this._goToNfcSetting}>
-                        <Text >(android) Go to NFC setting</Text>
-                    </TouchableOpacity>
+                <TouchableOpacity style={{ marginTop: 20 }} onPress={this._goToNfcSetting}>
+                    <Text >(android) Go to NFC setting</Text>
+                </TouchableOpacity>
 
-                    {
-                        <View style={{padding: 10, marginTop: 20, backgroundColor: '#e0e0e0'}}>
-                            <Text>(android) Write NDEF Test</Text>
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <Text>http://www.</Text>
-                                <TextInput
-                                    style={{width: 200}}
-                                    value={urlToWrite}
-                                    onChangeText={urlToWrite => this.setState({ urlToWrite })}
-                                />
-                            </View>
-
-                            <TouchableOpacity 
-                                style={{ marginTop: 20, borderWidth: 1, borderColor: 'blue', padding: 10 }} 
-                                onPress={isWriting ? this._cancelNdefWrite : this._requestNdefWrite}>
-                                <Text style={{color: 'blue'}}>{`(android) ${isWriting ? 'Cancel' : 'Write NDEF'}`}</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity 
-                                style={{ marginTop: 20, borderWidth: 1, borderColor: 'blue', padding: 10 }} 
-                                onPress={isWriting ? this._cancelNdefWrite : this._requestFormat}>
-                                <Text style={{color: 'blue'}}>{`(android experimental) ${isWriting ? 'Cancel' : 'Format'}`}</Text>
-                            </TouchableOpacity>
+                {
+                    <View style={{padding: 10, marginTop: 20, backgroundColor: '#e0e0e0'}}>
+                        <Text>(android) Write NDEF Test</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Text>http://www.</Text>
+                            <TextInput
+                                style={{width: 200}}
+                                value={urlToWrite}
+                                onChangeText={urlToWrite => this.setState({ urlToWrite })}
+                            />
                         </View>
-                    }
 
-                    <Text style={{ marginTop: 20 }}>{`Current tag JSON: ${JSON.stringify(tag)}`}</Text>
-                </View>
-            </ScrollView>
+                        <TouchableOpacity 
+                            style={{ marginTop: 20, borderWidth: 1, borderColor: 'blue', padding: 10 }} 
+                            onPress={isWriting ? this._cancelNdefWrite : this._requestNdefWrite}>
+                            <Text style={{color: 'blue'}}>{`(android) ${isWriting ? 'Cancel' : 'Write NDEF'}`}</Text>
+                        </TouchableOpacity>
+                    </View>
+                }
+
+                <Text style={{ marginTop: 20 }}>{`Current tag JSON: ${JSON.stringify(tag)}`}</Text>
+            </View>
         )
-    }
-
-    _requestFormat = () => {
-        let {isWriting} = this.state;
-        if (isWriting) {
-            return;
-        }
-
-        this.setState({isWriting: true});
-        NfcManager.requestNdefWrite(null, {format: true})
-            .then(() => console.log('format completed'))
-            .catch(err => console.warn(err))
-            .then(() => this.setState({isWriting: false}));
     }
 
     _requestNdefWrite = () => {
@@ -171,27 +143,6 @@ class App extends Component {
                 })
                 .catch(err => {
                     console.log(err);
-                })
-            NfcManager.onStateChanged(
-                event => {
-                    if (event.state === 'on') {
-                        this.setState({enabled: true});
-                    } else if (event.state === 'off') {
-                        this.setState({enabled: false});
-                    } else if (event.state === 'turning_on') {
-                        // do whatever you want
-                    } else if (event.state === 'turning_off') {
-                        // do whatever you want
-                    }
-                }
-            )
-                .then(sub => {
-                    this._stateChangedSubscription = sub; 
-                    // remember to call this._stateChangedSubscription.remove()
-                    // when you don't want to listen to this anymore
-                })
-                .catch(err => {
-                    console.warn(err);
                 })
         }
     }

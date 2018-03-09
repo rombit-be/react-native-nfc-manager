@@ -6,23 +6,12 @@ Contributions are welcomed!
 
 ## Supported Platforms
 - Android (API 10+)
-- iOS (iOS11 with iPhone 7/7+, 8/8+, 10)
+- iOS (iOS11 with iPhone 7/7+, 8/8+)
 
 ## Some Words about iOS Support
 
 You will need to setup some capabilities / entitlement / plist stuff to enable NFC development on your device, please follow this great tutorial:
 * https://www.youtube.com/watch?v=SD6Rm4cGyko
-
-## Version history (from v0.1.0) 
-
-v0.1.0
-- add `isNfcSupported` 
-
-v0.2.0
-- add `requestNdefWrite` and `cancelNdefWrite` [Android only] 
-
-v0.3.0
-- add `onStateChanged` [Android only] 
 
 ## Install
 ```shell
@@ -130,36 +119,6 @@ __Arguments__
 ### cancelNdefWrite() [Android only]
 Cancel the pending ndef writing operation.
 
-### onStateChanged(listener) [Android only]
-Listen to NFC state change (on/off/turning_on/turning_off)
-
-__Arguments__
-- `listener` - `function` - the callback when NFC state changed
-
-__Examples__
-```js
-NfcManager.onStateChanged(
-    event => {
-        if (event.state === 'on') {
-            // do whatever you want
-        } else if (event.state === 'off') {
-            // do whatever you want
-        } else if (event.state === 'turning_on') {
-            // do whatever you want
-        } else if (event.state === 'turning_off') {
-            // do whatever you want
-        }
-    }
-)
-    .then(sub => {
-        this._stateChangedSub = sub; 
-        // remember to call this._stateChangedSub.remove()
-        // when you don't want to listen to this anymore
-    })
-    .catch(err => {
-        console.warn(err);
-    })
-```
 
 ## NdefParser API
 
@@ -186,3 +145,10 @@ Current setting is:
 
 If you want to only have your app support NFC devices then you have to change required to true.
 
+## Version history (from v0.1.0) 
+
+v0.1.0
+- add `isNfcSupported` 
+
+v0.2.0
+- add `requestNdefWrite` and `cancelNdefWrite` [Android only] 
