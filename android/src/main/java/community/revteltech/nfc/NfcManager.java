@@ -286,6 +286,7 @@ class NfcManager extends ReactContextBaseJavaModule implements ActivityEventList
   public void onNewIntent(Intent intent) {
         Log.d(LOG_TAG, "onNewIntent " + intent);
     WritableMap nfcTag = parseNfcIntent(intent);
+      Log.d(LOG_TAG, nfcTag.toString());
     if (nfcTag != null) {
       sendEvent("NfcManagerDiscoverTag", nfcTag);
     }
@@ -325,24 +326,28 @@ class NfcManager extends ReactContextBaseJavaModule implements ActivityEventList
       for (String tagTech : tag.getTechList()) {
         Log.d(LOG_TAG, tagTech);
         if (tagTech.equals("android.nfc.tech.MifareUltralight")) { //
-          Ndef ndef = Ndef.get(tag);
-          MifareUltralight mifare = MifareUltralight.get(tag);
-          byte[] buffer = new byte[16];
-          try {
-            mifare.connect();
-            String paddedMessage = new String(mifare.readPages(144));
-            String message = paddedMessage.substring(5, paddedMessage.length() - 3);
-            Log.d(LOG_TAG, message);
-          } catch (IOException e) {
-            e.printStackTrace();
-          }
-          Log.d(LOG_TAG, ndef.toString());
-          parsed = ndef2React(ndef, new NdefMessage[] { ndef.getCachedNdefMessage() });
-        } else if (tagTech.equals(NdefFormatable.class.getName())) {
-          // fireNdefFormatableEvent(tag);
-        } else if (tagTech.equals(Ndef.class.getName())) { //
-          Ndef ndef = Ndef.get(tag);
-          parsed = ndef2React(ndef, new NdefMessage[] { ndef.getCachedNdefMessage() });
+            Ndef ndef = Ndef.get(tag);
+            MifareUltralight mifare = MifareUltralight.get(tag);
+            JSONObject json = new JSONObject();
+            String message = "";
+            try {
+                mifare.connect();
+                String paddedMessage = new String(mifare.readPages(144));
+                message = paddedMessage.substring(5, paddedMessage.length() - 3);
+                try {
+                    json.put("sigFox", message);
+                } catch (JSONException e) {
+                    //Not sure why this would happen, documentation is unclear.
+                    Log.e(LOG_TAG, "Failed to convert message to json: " + message, e);
+                }
+                Log.d(LOG_TAG, message);
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            parsed = ndef2React(ndef, new NdefMessage[] { ndef.getCachedNdefMessage() });
+            parsed.putString("sigfoxId", message);
+            Log.d(LOG_TAG, parsed.toString());
         }
       }
     } else if (action.equals(NfcAdapter.ACTION_TAG_DISCOVERED)) {
@@ -350,6 +355,14 @@ class NfcManager extends ReactContextBaseJavaModule implements ActivityEventList
     }
 
     return parsed;
+  }
+
+  private WritableMap json2React(JSONObject json) {
+    try {
+        return JsonConvert.jsonToReact(json);
+    } catch (JSONException ex) {
+        return null;
+    }
   }
 
   private WritableMap tag2React(Tag tag) {
