@@ -45,174 +45,174 @@ import static com.facebook.react.bridge.UiThreadUtil.runOnUiThread;
 import android.content.pm.PackageManager;
 
 class NfcManager extends ReactContextBaseJavaModule implements ActivityEventListener, LifecycleEventListener {
-	private static final String LOG_TAG = "NfcManager";
+  private static final String LOG_TAG = "NfcManager";
     private final List<IntentFilter> intentFilters = new ArrayList<IntentFilter>();
     private final ArrayList<String[]> techLists = new ArrayList<String[]>();
-	private Context context;
-	private ReactApplicationContext reactContext;
-	private Boolean isForegroundEnabled = false;
-	private Boolean isResumed = false;
-	private WriteNdefRequest writeNdefRequest = null;
+  private Context context;
+  private ReactApplicationContext reactContext;
+  private Boolean isForegroundEnabled = false;
+  private Boolean isResumed = false;
+  private WriteNdefRequest writeNdefRequest = null;
 
-	class WriteNdefRequest {
-		NdefMessage message;
-		Callback callback;
+  class WriteNdefRequest {
+    NdefMessage message;
+    Callback callback;
 
-		WriteNdefRequest(NdefMessage message, Callback callback) {
-			this.message = message;
-			this.callback = callback;
-		}
-	}
+    WriteNdefRequest(NdefMessage message, Callback callback) {
+      this.message = message;
+      this.callback = callback;
+    }
+  }
 
     public NfcManager(ReactApplicationContext reactContext) {
         super(reactContext);
         context = reactContext;
         this.reactContext = reactContext;
         reactContext.addActivityEventListener(this);
-		reactContext.addLifecycleEventListener(this);
+    reactContext.addLifecycleEventListener(this);
         Log.d(LOG_TAG, "NfcManager created");
     }
 
-	@Override
-	public String getName() {
-		return "NfcManager";
-	}
+  @Override
+  public String getName() {
+    return "NfcManager";
+  }
 
-	@ReactMethod
-	public void cancelNdefWrite(Callback callback) {
-		synchronized(this) {
-		    if (writeNdefRequest != null) {
-		    	writeNdefRequest.callback.invoke("cancelled");
-				writeNdefRequest = null;
-				callback.invoke();
-		    } else {
-				callback.invoke("no writing request available");
-			}
-		}
-	}
+  @ReactMethod
+  public void cancelNdefWrite(Callback callback) {
+    synchronized(this) {
+        if (writeNdefRequest != null) {
+          writeNdefRequest.callback.invoke("cancelled");
+        writeNdefRequest = null;
+        callback.invoke();
+        } else {
+        callback.invoke("no writing request available");
+      }
+    }
+  }
 
-	@ReactMethod
-	public void requestNdefWrite(ReadableArray rnArray, Callback callback) {
-		synchronized(this) {
-			if (!isForegroundEnabled) {
-				callback.invoke("you should requestTagEvent first");
-				return;
-			}
+  @ReactMethod
+  public void requestNdefWrite(ReadableArray rnArray, Callback callback) {
+    synchronized(this) {
+      if (!isForegroundEnabled) {
+        callback.invoke("you should requestTagEvent first");
+        return;
+      }
 
-		    if (writeNdefRequest != null) {
-		    	callback.invoke("You can only issue one request at a time");
-		    } else {
-		        try {
-					byte[] bytes = rnArrayToBytes(rnArray);
-		    		writeNdefRequest = new WriteNdefRequest(
-						new NdefMessage(bytes), 
-						callback // defer the callback 
-					); 
-		        } catch (FormatException e) {
-		        	callback.invoke("Incorrect ndef format");
-		        }
-		    }
-		}
-	}
+        if (writeNdefRequest != null) {
+          callback.invoke("You can only issue one request at a time");
+        } else {
+            try {
+          byte[] bytes = rnArrayToBytes(rnArray);
+            writeNdefRequest = new WriteNdefRequest(
+            new NdefMessage(bytes),
+            callback // defer the callback
+          );
+            } catch (FormatException e) {
+              callback.invoke("Incorrect ndef format");
+            }
+        }
+    }
+  }
 
-	@ReactMethod
-	public void start(Callback callback) {
-		NfcAdapter nfcAdapter = NfcAdapter.getDefaultAdapter(context);
-		if (nfcAdapter != null) {
-			Log.d(LOG_TAG, "start");
-			callback.invoke();
-		} else {
-			Log.d(LOG_TAG, "not support in this device");
-			callback.invoke("no nfc support");
-		}
-	}
-    
-    	@ReactMethod
-	public void isSupported(Callback callback){
-		Log.d(LOG_TAG, "isSupported");
-		boolean result = getReactApplicationContext().getCurrentActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_NFC);
-		callback.invoke(null,result);
-	}
+  @ReactMethod
+  public void start(Callback callback) {
+    NfcAdapter nfcAdapter = NfcAdapter.getDefaultAdapter(context);
+    if (nfcAdapter != null) {
+      Log.d(LOG_TAG, "start");
+      callback.invoke();
+    } else {
+      Log.d(LOG_TAG, "not support in this device");
+      callback.invoke("no nfc support");
+    }
+  }
 
-	@ReactMethod
-	public void isEnabled(Callback callback) {
-		Log.d(LOG_TAG, "isEnabled");
+      @ReactMethod
+  public void isSupported(Callback callback){
+    Log.d(LOG_TAG, "isSupported");
+    boolean result = getReactApplicationContext().getCurrentActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_NFC);
+    callback.invoke(null,result);
+  }
+
+  @ReactMethod
+  public void isEnabled(Callback callback) {
+    Log.d(LOG_TAG, "isEnabled");
         NfcAdapter nfcAdapter = NfcAdapter.getDefaultAdapter(context);
-		if (nfcAdapter != null) {
-			callback.invoke(null, nfcAdapter.isEnabled());
-		} else {
-			callback.invoke(null, false);
-		}
-	}
+    if (nfcAdapter != null) {
+      callback.invoke(null, nfcAdapter.isEnabled());
+    } else {
+      callback.invoke(null, false);
+    }
+  }
 
-	@ReactMethod
-	public void goToNfcSetting(Callback callback) {
-		Log.d(LOG_TAG, "goToNfcSetting");
+  @ReactMethod
+  public void goToNfcSetting(Callback callback) {
+    Log.d(LOG_TAG, "goToNfcSetting");
         Activity currentActivity = getCurrentActivity();
-		currentActivity.startActivity(new Intent(Settings.ACTION_NFC_SETTINGS));
-		callback.invoke();
-	}
+    currentActivity.startActivity(new Intent(Settings.ACTION_NFC_SETTINGS));
+    callback.invoke();
+  }
 
-	@ReactMethod
-	public void getLaunchTagEvent(Callback callback) {
+  @ReactMethod
+  public void getLaunchTagEvent(Callback callback) {
         Activity currentActivity = getCurrentActivity();
-		Intent launchIntent = currentActivity.getIntent();
-		WritableMap nfcTag = parseNfcIntent(launchIntent);
-		callback.invoke(null, nfcTag);
-	}
+    Intent launchIntent = currentActivity.getIntent();
+    WritableMap nfcTag = parseNfcIntent(launchIntent);
+    callback.invoke(null, nfcTag);
+  }
 
-	@ReactMethod
+  @ReactMethod
     private void registerTagEvent(String alertMessage, Boolean invalidateAfterFirstRead, Callback callback) {
         Log.d(LOG_TAG, "registerTag");
-		isForegroundEnabled = true;
+    isForegroundEnabled = true;
 
-		// capture all mime-based dispatch NDEF
-		IntentFilter ndef = new IntentFilter(NfcAdapter.ACTION_NDEF_DISCOVERED);
-		try {
-			ndef.addDataType("*/*");
-		} catch (MalformedMimeTypeException e) {
-			throw new RuntimeException("fail", e);
-	    }
-		intentFilters.add(ndef);
+    // capture all mime-based dispatch NDEF
+    IntentFilter ndef = new IntentFilter(NfcAdapter.ACTION_NDEF_DISCOVERED);
+    try {
+      ndef.addDataType("*/*");
+    } catch (MalformedMimeTypeException e) {
+      throw new RuntimeException("fail", e);
+      }
+    intentFilters.add(ndef);
 
-		// capture all rest NDEF, such as uri-based
+    // capture all rest NDEF, such as uri-based
         intentFilters.add(new IntentFilter(NfcAdapter.ACTION_TECH_DISCOVERED));
-		techLists.add(new String[]{Ndef.class.getName()});
+    techLists.add(new String[]{Ndef.class.getName()});
 
-		// for those without NDEF, get them as tags
+    // for those without NDEF, get them as tags
         intentFilters.add(new IntentFilter(NfcAdapter.ACTION_TAG_DISCOVERED));
 
-		if (isResumed) {
-			enableDisableForegroundDispatch(true);
-		}
+    if (isResumed) {
+      enableDisableForegroundDispatch(true);
+    }
         callback.invoke();
-  	}
+    }
 
-	@ReactMethod
+  @ReactMethod
     private void unregisterTagEvent(Callback callback) {
         Log.d(LOG_TAG, "registerTag");
-		isForegroundEnabled = false;
-		intentFilters.clear();
-		if (isResumed) {
-			enableDisableForegroundDispatch(false);
-		}
+    isForegroundEnabled = false;
+    intentFilters.clear();
+    if (isResumed) {
+      enableDisableForegroundDispatch(false);
+    }
         callback.invoke();
-  	}
+    }
 
     @Override
     public void onHostResume() {
         Log.d(LOG_TAG, "onResume");
-		isResumed = true;
-		if (isForegroundEnabled) {
-			enableDisableForegroundDispatch(true);
-		}
+    isResumed = true;
+    if (isForegroundEnabled) {
+      enableDisableForegroundDispatch(true);
+    }
     }
 
     @Override
     public void onHostPause() {
         Log.d(LOG_TAG, "onPause");
-		isResumed = false;
-		enableDisableForegroundDispatch(false);
+    isResumed = false;
+    enableDisableForegroundDispatch(false);
     }
 
     @Override
@@ -227,11 +227,11 @@ class NfcManager extends ReactContextBaseJavaModule implements ActivityEventList
 
         if (nfcAdapter != null && !currentActivity.isFinishing()) {
             try {
-				if (enable) {
+        if (enable) {
                     nfcAdapter.enableForegroundDispatch(currentActivity, getPendingIntent(), getIntentFilters(), getTechLists());
-				} else {
-					nfcAdapter.disableForegroundDispatch(currentActivity);
-				}
+        } else {
+          nfcAdapter.disableForegroundDispatch(currentActivity);
+        }
             } catch (IllegalStateException e) {
                 Log.w(LOG_TAG, "Illegal State Exception starting NFC. Assuming application is terminating.");
             }
@@ -253,122 +253,121 @@ class NfcManager extends ReactContextBaseJavaModule implements ActivityEventList
         return techLists.toArray(new String[0][0]);
     }
 
-	private void sendEvent(String eventName,
-						   @Nullable WritableMap params) {
-		getReactApplicationContext()
-				.getJSModule(RCTNativeAppEventEmitter.class)
-				.emit(eventName, params);
-	}
+  private void sendEvent(String eventName,
+               @Nullable WritableMap params) {
+    getReactApplicationContext()
+        .getJSModule(RCTNativeAppEventEmitter.class)
+        .emit(eventName, params);
+  }
 
-	private void sendEventWithJson(String eventName,
-						  JSONObject json) {
-		try {
-			WritableMap map = JsonConvert.jsonToReact(json);
-			sendEvent(eventName, map);
-		} catch (JSONException ex) {
-			Log.d(LOG_TAG, "fireNdefEvent fail: " + ex);
-		}
-	}
+  private void sendEventWithJson(String eventName,
+              JSONObject json) {
+    try {
+      WritableMap map = JsonConvert.jsonToReact(json);
+      sendEvent(eventName, map);
+    } catch (JSONException ex) {
+      Log.d(LOG_TAG, "fireNdefEvent fail: " + ex);
+    }
+  }
 
-	private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
-		@Override
-		public void onReceive(Context context, Intent intent) {
-			Log.d(LOG_TAG, "onReceive " + intent);
-		}
-	};
+  private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+    @Override
+    public void onReceive(Context context, Intent intent) {
+      Log.d(LOG_TAG, "onReceive " + intent);
+    }
+  };
 
-	@Override
-	public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent data) {
-		Log.d(LOG_TAG, "onActivityResult");
-	}
+  @Override
+  public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent data) {
+    Log.d(LOG_TAG, "onActivityResult");
+  }
 
-	@Override
-	public void onNewIntent(Intent intent) {
+  @Override
+  public void onNewIntent(Intent intent) {
         Log.d(LOG_TAG, "onNewIntent " + intent);
-		WritableMap nfcTag = parseNfcIntent(intent);
-		if (nfcTag != null) {
-			sendEvent("NfcManagerDiscoverTag", nfcTag);
-		}
-	}
+    WritableMap nfcTag = parseNfcIntent(intent);
+    if (nfcTag != null) {
+      sendEvent("NfcManagerDiscoverTag", nfcTag);
+    }
+  }
 
-	private WritableMap parseNfcIntent(Intent intent) {
-		Log.d(LOG_TAG, "parseIntent " + intent);
-		String action = intent.getAction();
-		Log.d(LOG_TAG, "action " + action);
-		if (action == null) {
-			return null;
-		}
+  private WritableMap parseNfcIntent(Intent intent) {
+    Log.d(LOG_TAG, "parseIntent " + intent);
+    String action = intent.getAction();
+    Log.d(LOG_TAG, "action " + action);
+    if (action == null) {
+      return null;
+    }
 
-		WritableMap parsed = null;
-		Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
-		// Parcelable[] messages = intent.getParcelableArrayExtra((NfcAdapter.EXTRA_NDEF_MESSAGES));
+    WritableMap parsed = null;
+    Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
+    // Parcelable[] messages = intent.getParcelableArrayExtra((NfcAdapter.EXTRA_NDEF_MESSAGES));
 
-		synchronized(this) {
-			if (writeNdefRequest != null) {
-				writeNdef(
-					tag, 
-					writeNdefRequest.message, 
-					writeNdefRequest.callback
-				);
-				writeNdefRequest = null;
+    synchronized(this) {
+      if (writeNdefRequest != null) {
+        writeNdef(
+          tag,
+          writeNdefRequest.message,
+          writeNdefRequest.callback
+        );
+        writeNdefRequest = null;
 
-				// explicitly return null, to avoid extra detection
-				return null;
-			}
-		}
+        // explicitly return null, to avoid extra detection
+        return null;
+      }
+    }
 
-		if (action.equals(NfcAdapter.ACTION_NDEF_DISCOVERED)) {
-			Ndef ndef = Ndef.get(tag);
-			Parcelable[] messages = intent.getParcelableArrayExtra((NfcAdapter.EXTRA_NDEF_MESSAGES));
-			parsed = ndef2React(ndef, messages);
-		} else if (action.equals(NfcAdapter.ACTION_TECH_DISCOVERED)) {
-			for (String tagTech : tag.getTechList()) {
-				Log.d(LOG_TAG, tagTech);
-				if (tagTech.equals(NdefFormatable.class.getName())) {
-					// fireNdefFormatableEvent(tag);
-				} else if (tagTech.equals(Ndef.class.getName())) { //
-					Ndef ndef = Ndef.get(tag);
-					MifareUltralight mifare = MifareUltralight.get(tag);
-					byte[] buffer = new byte[16];
-					try {
-						mifare.connect();
-						ByteArrayOutputStream out = new ByteArrayOutputStream();
-						String s = new String(mifare.readPages(144));
-						Log.d(LOG_TAG, s);
-						out.write(mifare.readPages(144));
-						buffer = out.toByteArray();
-						Log.d(LOG_TAG, buffer.toString());
-						Log.d(LOG_TAG, Util.byteArrayToJSON(buffer).toString());
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
-					Log.d(LOG_TAG, ndef.toString());
-					parsed = ndef2React(ndef, new NdefMessage[] { ndef.getCachedNdefMessage() });
-				}
-			}
-		} else if (action.equals(NfcAdapter.ACTION_TAG_DISCOVERED)) {
-			parsed = tag2React(tag);
-		}
+    if (action.equals(NfcAdapter.ACTION_NDEF_DISCOVERED)) {
+      Ndef ndef = Ndef.get(tag);
+      Parcelable[] messages = intent.getParcelableArrayExtra((NfcAdapter.EXTRA_NDEF_MESSAGES));
+      parsed = ndef2React(ndef, messages);
+    } else if (action.equals(NfcAdapter.ACTION_TECH_DISCOVERED)) {
+      for (String tagTech : tag.getTechList()) {
+        Log.d(LOG_TAG, tagTech);
+        if (tagTech.equals("android.nfc.tech.MifareUltralight")) { //
+          Ndef ndef = Ndef.get(tag);
+          MifareUltralight mifare = MifareUltralight.get(tag);
+          byte[] buffer = new byte[16];
+          try {
+            mifare.connect();
+            String paddedMessage = new String(mifare.readPages(144));
+            String message = paddedMessage.substring(5, paddedMessage.length() - 3);
+            Log.d(LOG_TAG, message);
+          } catch (IOException e) {
+            e.printStackTrace();
+          }
+          Log.d(LOG_TAG, ndef.toString());
+          parsed = ndef2React(ndef, new NdefMessage[] { ndef.getCachedNdefMessage() });
+        } else if (tagTech.equals(NdefFormatable.class.getName())) {
+          // fireNdefFormatableEvent(tag);
+        } else if (tagTech.equals(Ndef.class.getName())) { //
+          Ndef ndef = Ndef.get(tag);
+          parsed = ndef2React(ndef, new NdefMessage[] { ndef.getCachedNdefMessage() });
+        }
+      }
+    } else if (action.equals(NfcAdapter.ACTION_TAG_DISCOVERED)) {
+      parsed = tag2React(tag);
+    }
 
-		return parsed;
-	}
+    return parsed;
+  }
 
-	private WritableMap tag2React(Tag tag) {
-		try {
-			JSONObject json = Util.tagToJSON(tag);
-			return JsonConvert.jsonToReact(json);
-		} catch (JSONException ex) {
-			return null;
-		}
-	}
+  private WritableMap tag2React(Tag tag) {
+    try {
+      JSONObject json = Util.tagToJSON(tag);
+      return JsonConvert.jsonToReact(json);
+    } catch (JSONException ex) {
+      return null;
+    }
+  }
 
     private WritableMap ndef2React(Ndef ndef, Parcelable[] messages) {
-		try {
-			JSONObject json = buildNdefJSON(ndef, messages);
-			return JsonConvert.jsonToReact(json);
-		} catch (JSONException ex) {
-			return null;
-		}
+    try {
+      JSONObject json = buildNdefJSON(ndef, messages);
+      return JsonConvert.jsonToReact(json);
+    } catch (JSONException ex) {
+      return null;
+    }
     }
 
     JSONObject buildNdefJSON(Ndef ndef, Parcelable[] messages) {
@@ -399,34 +398,34 @@ class NfcManager extends ReactContextBaseJavaModule implements ActivityEventList
         return json;
     }
 
-	private void writeNdef(Tag tag, NdefMessage message, Callback callback) {
-		try {
+  private void writeNdef(Tag tag, NdefMessage message, Callback callback) {
+    try {
             Log.d(LOG_TAG, "ready to writeNdef");
-			Ndef ndef = Ndef.get(tag);
-			if (ndef == null) {
-				callback.invoke("fail to apply ndef tech");
-			} else if (!ndef.isWritable()) {
-				callback.invoke("tag is not writeable");
+      Ndef ndef = Ndef.get(tag);
+      if (ndef == null) {
+        callback.invoke("fail to apply ndef tech");
+      } else if (!ndef.isWritable()) {
+        callback.invoke("tag is not writeable");
             } else if (ndef.getMaxSize() < message.toByteArray().length) {
-				callback.invoke("tag size is not enough");
+        callback.invoke("tag size is not enough");
             } else {
-            	Log.d(LOG_TAG, "ready to writeNdef, seriously");
-				ndef.connect();
-				ndef.writeNdefMessage(message);
-				callback.invoke();
-			}
-		} catch (Exception ex) {
-			callback.invoke(ex.getMessage());
-		}
-	}
+              Log.d(LOG_TAG, "ready to writeNdef, seriously");
+        ndef.connect();
+        ndef.writeNdefMessage(message);
+        callback.invoke();
+      }
+    } catch (Exception ex) {
+      callback.invoke(ex.getMessage());
+    }
+  }
 
-	private byte[] rnArrayToBytes(ReadableArray rArray) {
-		byte[] bytes = new byte[rArray.size()];
-		for (int i = 0; i < rArray.size(); i++) {
-			bytes[i] = (byte)(rArray.getInt(i) & 0xff);
-		}
-		return bytes;
-	}
+  private byte[] rnArrayToBytes(ReadableArray rArray) {
+    byte[] bytes = new byte[rArray.size()];
+    for (int i = 0; i < rArray.size(); i++) {
+      bytes[i] = (byte)(rArray.getInt(i) & 0xff);
+    }
+    return bytes;
+  }
 
 }
 
