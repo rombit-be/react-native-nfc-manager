@@ -1,48 +1,35 @@
 package community.revteltech.nfc;
 
 import android.app.Activity;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.nfc.tech.MifareUltralight;
-import android.os.Build;
-import android.os.Bundle;
-import android.support.annotation.Nullable;
-import android.util.Base64;
-import android.util.Log;
-import android.provider.Settings;
-import com.facebook.react.bridge.*;
-import com.facebook.react.modules.core.RCTNativeAppEventEmitter;
-
-import android.app.PendingIntent;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.IntentFilter.MalformedMimeTypeException;
-import android.net.Uri;
+import android.content.pm.PackageManager;
 import android.nfc.FormatException;
 import android.nfc.NdefMessage;
 import android.nfc.NdefRecord;
 import android.nfc.NfcAdapter;
-import android.nfc.NfcEvent;
 import android.nfc.Tag;
-import android.nfc.TagLostException;
+import android.nfc.tech.MifareUltralight;
 import android.nfc.tech.Ndef;
-import android.nfc.tech.NdefFormatable;
 import android.os.Parcelable;
+import android.provider.Settings;
+import android.support.annotation.Nullable;
+import android.util.Log;
 
-import org.json.JSONObject;
+import com.facebook.react.bridge.*;
+import com.facebook.react.modules.core.RCTNativeAppEventEmitter;
+
+import org.json.JSONArray;
 import org.json.JSONException;
+import org.json.JSONObject;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.*;
-
-import static android.app.Activity.RESULT_OK;
-import static android.os.Build.VERSION_CODES.LOLLIPOP;
-import static com.facebook.react.bridge.UiThreadUtil.runOnUiThread;
-
-import android.content.pm.PackageManager;
+import java.util.ArrayList;
+import java.util.List;
 
 class NfcManager extends ReactContextBaseJavaModule implements ActivityEventListener, LifecycleEventListener {
   private static final String LOG_TAG = "NfcManager";
@@ -53,6 +40,7 @@ class NfcManager extends ReactContextBaseJavaModule implements ActivityEventList
   private Boolean isForegroundEnabled = false;
   private Boolean isResumed = false;
   private WriteNdefRequest writeNdefRequest = null;
+  private Tag savedTag;
 
   class WriteNdefRequest {
     NdefMessage message;
@@ -91,29 +79,34 @@ class NfcManager extends ReactContextBaseJavaModule implements ActivityEventList
     }
   }
 
-  @ReactMethod
-  public void requestNdefWrite(ReadableArray rnArray, Callback callback) {
-    synchronized(this) {
-      if (!isForegroundEnabled) {
-        callback.invoke("you should requestTagEvent first");
-        return;
-      }
+    @ReactMethod
+    public void requestNdefWrite(String data, Callback callback) {
+        synchronized(this) {
+            if (!isForegroundEnabled) {
+                callback.invoke("you should requestTagEvent first");
+                return;
+            }
 
-        if (writeNdefRequest != null) {
-          callback.invoke("You can only issue one request at a time");
-        } else {
-            try {
-          byte[] bytes = rnArrayToBytes(rnArray);
-            writeNdefRequest = new WriteNdefRequest(
-            new NdefMessage(bytes),
-            callback // defer the callback
-          );
-            } catch (FormatException e) {
-              callback.invoke("Incorrect ndef format");
+            if (writeNdefRequest != null) {
+                callback.invoke("You can only issue one request at a time");
+            } else {
+                try {
+                    Log.d(LOG_TAG, data);
+                    NdefMessage message = new NdefMessage(
+                            new NdefRecord(Util.hexStringToByteArray(data)));
+                    Log.d(LOG_TAG, message.toString());
+
+                    writeNdefRequest = new WriteNdefRequest(
+                            message,
+                            callback // defer the callback
+                    );
+                } catch (IllegalArgumentException | NullPointerException | FormatException e) {
+                    Log.d(LOG_TAG, e.toString());
+                    callback.invoke("Incorrect ndef format");
+                }
             }
         }
     }
-  }
 
   @ReactMethod
   public void start(Callback callback) {
@@ -302,6 +295,7 @@ class NfcManager extends ReactContextBaseJavaModule implements ActivityEventList
 
     WritableMap parsed = null;
     Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
+    this.savedTag = tag;
     // Parcelable[] messages = intent.getParcelableArrayExtra((NfcAdapter.EXTRA_NDEF_MESSAGES));
 
     synchronized(this) {
