@@ -41,6 +41,7 @@ class NfcManager extends ReactContextBaseJavaModule implements ActivityEventList
     private Boolean isResumed = false;
     private WriteNdefRequest writeNdefRequest = null;
     private Intent savedIntent;
+    private WritableMap savedParsed;
 
     class WriteNdefRequest {
         NdefMessage message;
@@ -299,20 +300,6 @@ class NfcManager extends ReactContextBaseJavaModule implements ActivityEventList
         WritableMap parsed = null;
         Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
 
-        synchronized(this) {
-            if (writeNdefRequest != null) {
-                writeNdef(
-                        tag,
-                        writeNdefRequest.message,
-                        writeNdefRequest.callback
-                );
-                writeNdefRequest = null;
-
-                // explicitly return null, to avoid extra detection
-                return null;
-            }
-        }
-
         if (action.equals(NfcAdapter.ACTION_NDEF_DISCOVERED)) {
             Ndef ndef = Ndef.get(tag);
             Parcelable[] messages = intent.getParcelableArrayExtra((NfcAdapter.EXTRA_NDEF_MESSAGES));
@@ -343,10 +330,29 @@ class NfcManager extends ReactContextBaseJavaModule implements ActivityEventList
                     parsed = ndef2React(ndef, new NdefMessage[] { ndef.getCachedNdefMessage() });
                     parsed.putString("sigfoxId", message);
                     Log.d(LOG_TAG, parsed.toString());
+                    try {
+                        mifare.close();
+                    } catch (IOException e) {
+                        Log.d(LOG_TAG, e.toString());
+                    }
                 }
             }
         } else if (action.equals(NfcAdapter.ACTION_TAG_DISCOVERED)) {
             parsed = tag2React(tag);
+        }
+
+        synchronized(this) {
+            if (writeNdefRequest != null) {
+                writeNdef(
+                        tag,
+                        writeNdefRequest.message,
+                        writeNdefRequest.callback
+                );
+                writeNdefRequest = null;
+
+                // explicitly return null, to avoid extra detection
+                return parsed;
+            }
         }
 
         return parsed;
